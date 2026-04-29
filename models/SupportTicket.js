@@ -1,46 +1,28 @@
-
 import mongoose from "mongoose";
 
-const messageSchema = new mongoose.Schema(
-  {
-    sender: {
-      type: String,
-      enum: ["user", "admin"],
-      required: true,
-    },
-    message: {
-      type: String,
-      required: true,
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
-  },
-  { _id: false }
-);
+const messageSchema = new mongoose.Schema({
+  sender: { type: String, enum: ["user", "admin"], required: true },
+  message: String,
+  image: String,
+  createdAt: { type: Date, default: Date.now },
+});
 
-const supportTicketSchema = new mongoose.Schema(
+const ticketSchema = new mongoose.Schema(
   {
-    user: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    subject: {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+
+    department: {
       type: String,
-      required: true,
+      enum: [
+        "it",
+        "personal",
+      ],
     },
-    status: {
-      type: String,
-      enum: ["Open", "Closed"],
-      default: "Open",
-    },
+
+    status: { type: String, default: "Open" },
     messages: [messageSchema],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-export default mongoose.model("SupportTicket", supportTicketSchema);
+export default mongoose.model("SupportTicket", ticketSchema);
