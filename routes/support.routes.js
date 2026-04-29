@@ -1,100 +1,129 @@
 import express from "express";
 import SupportTicket from "../models/SupportTicket.js";
 import verifyToken from "../middleware/verifyToken.js";
+import multer from "multer";
+import cloudinary from "../config/cloudinary.js";
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * ===============================
- * GET LOGGED-IN USER TICKETS
- * ===============================
- */
-router.get("/my-tickets", verifyToken, async (req, res) => {
+/* ================= OPEN OR GET TICKET ================= */
+router.post("/open/:department", verifyToken, async (req, res) => {
   try {
-    const tickets = await SupportTicket.find({
+    const { department } = req.params;
+
+    let ticket = await SupportTicket.findOne({
       user: req.user._id,
-    })
+      department,
+    });
+
+    if (!ticket) {
+      ticket = await SupportTicket.create({
+        user: req.user._id,
+        department,
+        messages: [
+          {
+            sender: "admin",
+            message: `Welcome to ${department} support 👋`,
+            image: null,
+            createdAt: new Date(),
+          },
+        ],
+      });
+    }
+
+    res.json(ticket);
+  } catch (err) {
+    res.status(500).json({ message: "Error opening ticket" });
+  }
+});
+
+/* ================= USER SEND MESSAGE ================= */
+router.post(
+  "/:id/message",
+  verifyToken,
+  upload.single("image"),
+  async (req, res) => {
+    try {
+      const ticket = await SupportTicket.findById(req.params.id);
+
+      if (!ticket) {
+        return res.status(404).json({ message: "Ticket not found" });
+      }
+
+      let imageUrl = null;
+
+      if (req.file) {
+        const result = await new Promise((resolve, reject) => {
+          cloudinary.uploader
+            .upload_stream({ folder: "support" }, (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            })
+            .end(req.file.buffer);
+        });
+
+        imageUrl = result?.secure_url || null;
+      }
+
+      const newMsg = {
+        sender: "user",
+        message: req.body.message || "",
+        image: imageUrl,
+        createdAt: new Date(),
+      };
+
+      ticket.messages.push(newMsg);
+      ticket.updatedAt = new Date();
+
+      await ticket.save();
+
+      res.json(newMsg);
+    } catch (err) {
+      res.status(500).json({ message: "Send failed" });
+    }
+  }
+);
+
+/* ================= ADMIN - GET ALL TICKETS ================= */
+router.get("/admin/all", verifyToken, async (req, res) => {
+  try {
+    const tickets = await SupportTicket.find()
+      .populate("user", "name email")
       .sort({ updatedAt: -1 });
 
     res.json(tickets);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: "Failed to fetch tickets" });
   }
 });
 
-/**
- * ===============================
- * CREATE NEW TICKET
- * ===============================
- */
-router.post("/create", verifyToken, async (req, res) => {
-  const { subject, message } = req.body;
-
-  if (!subject || !message) {
-    return res.status(400).json({
-      message: "Subject and message required",
-    });
-  }
-
+/* ================= ADMIN - REPLY (FIXED IMAGE SUPPORT) ================= */
+router.post("/admin/:ticketId/reply", verifyToken, async (req, res) => {
   try {
-    const ticket = await SupportTicket.create({
-      user: req.user._id,
-      subject,
-      status: "Open",
-      messages: [
-        {
-          sender: "user",
-          message,
-          createdAt: new Date(),
-        },
-      ],
-    });
+    const { message, image } = req.body;
 
-    res.status(201).json(ticket);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to create ticket" });
-  }
-});
-
-/**
- * ===============================
- * SEND MESSAGE (USER)
- * ===============================
- */
-router.post("/:id/message", verifyToken, async (req, res) => {
-  const { message } = req.body;
-
-  if (!message) {
-    return res.status(400).json({ message: "Message required" });
-  }
-
-  try {
-    const ticket = await SupportTicket.findOne({
-      _id: req.params.id,
-      user: req.user._id,
-    });
+    const ticket = await SupportTicket.findById(req.params.ticketId);
 
     if (!ticket) {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    ticket.messages.push({
-      sender: "user",
-      message,
+    const adminMsg = {
+      sender: "admin",
+      message: message || "",
+      image: image || null,   // ✅ FIXED
       createdAt: new Date(),
-    });
+    };
 
-    ticket.status = "Open";
+    ticket.messages.push(adminMsg);
     ticket.updatedAt = new Date();
 
     await ticket.save();
 
-    res.json(ticket);
+    res.json(adminMsg);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to send message" });
+    res.status(500).json({ message: "Reply failed" });
   }
 });
 
