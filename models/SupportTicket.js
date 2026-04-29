@@ -5,6 +5,10 @@ const messageSchema = new mongoose.Schema({
   message: String,
   image: String,
   createdAt: { type: Date, default: Date.now },
+
+  // ✅ NEW (Telegram style)
+  editedAt: { type: Date, default: null },
+  isDeleted: { type: Boolean, default: false },
 });
 
 const ticketSchema = new mongoose.Schema(
@@ -13,10 +17,7 @@ const ticketSchema = new mongoose.Schema(
 
     department: {
       type: String,
-      enum: [
-        "it",
-        "personal",
-      ],
+      enum: ["it", "personal"],
     },
 
     status: { type: String, default: "Open" },
