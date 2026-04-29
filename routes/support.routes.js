@@ -182,5 +182,44 @@ router.delete("/:ticketId/message/:messageId", verifyToken, async (req, res) => 
     res.status(500).json({ message: "Delete failed" });
   }
 });
+router.put("/admin/:ticketId/message/:messageId", verifyToken, async (req, res) => {
+  try {
+    const { message } = req.body;
 
+    const ticket = await SupportTicket.findById(req.params.ticketId);
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    const msg = ticket.messages.id(req.params.messageId);
+    if (!msg) return res.status(404).json({ message: "Message not found" });
+
+    msg.message = message;
+    msg.editedAt = new Date();
+
+    await ticket.save();
+
+    res.json(msg);
+  } catch (err) {
+    res.status(500).json({ message: "Edit failed" });
+  }
+});
+router.delete("/admin/:ticketId/message/:messageId", verifyToken, async (req, res) => {
+  try {
+    const ticket = await SupportTicket.findById(req.params.ticketId);
+    if (!ticket) return res.status(404).json({ message: "Ticket not found" });
+
+    const msg = ticket.messages.id(req.params.messageId);
+    if (!msg) return res.status(404).json({ message: "Message not found" });
+
+    msg.isDeleted = true;
+    msg.message = "This message was deleted";
+    msg.image = null;
+    msg.editedAt = new Date();
+
+    await ticket.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: "Delete failed" });
+  }
+});
 export default router;
