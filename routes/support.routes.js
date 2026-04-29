@@ -7,7 +7,17 @@ import cloudinary from "../config/cloudinary.js";
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-/* ================= OPEN OR GET TICKET ================= */
+const uploadImage = (file) =>
+  new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream({ folder: "support" }, (err, result) => {
+        if (err) reject(err);
+        else resolve(result.secure_url);
+      })
+      .end(file.buffer);
+  });
+
+/* ================= OPEN TICKET ================= */
 router.post("/open/:department", verifyToken, async (req, res) => {
   try {
     const { department } = req.params;
@@ -25,8 +35,6 @@ router.post("/open/:department", verifyToken, async (req, res) => {
           {
             sender: "admin",
             message: `Welcome to ${department} support 👋`,
-            image: null,
-            createdAt: new Date(),
           },
         ],
       });
@@ -38,7 +46,7 @@ router.post("/open/:department", verifyToken, async (req, res) => {
   }
 });
 
-/* ================= USER SEND MESSAGE ================= */
+/* ================= SEND MESSAGE ================= */
 router.post(
   "/:id/message",
   verifyToken,
@@ -46,84 +54,65 @@ router.post(
   async (req, res) => {
     try {
       const ticket = await SupportTicket.findById(req.params.id);
-
-      if (!ticket) {
-        return res.status(404).json({ message: "Ticket not found" });
-      }
+      if (!ticket) return res.status(404).json({ message: "Not found" });
 
       let imageUrl = null;
+      if (req.file) imageUrl = await uploadImage(req.file);
 
-      if (req.file) {
-        const result = await new Promise((resolve, reject) => {
-          cloudinary.uploader
-            .upload_stream({ folder: "support" }, (err, result) => {
-              if (err) reject(err);
-              else resolve(result);
-            })
-            .end(req.file.buffer);
-        });
-
-        imageUrl = result?.secure_url || null;
-      }
-
-      const newMsg = {
+      const msg = {
         sender: "user",
         message: req.body.message || "",
         image: imageUrl,
-        createdAt: new Date(),
       };
 
-      ticket.messages.push(newMsg);
-      ticket.updatedAt = new Date();
-
+      ticket.messages.push(msg);
       await ticket.save();
 
-      res.json(newMsg);
+      res.json(ticket.messages[ticket.messages.length - 1]);
     } catch (err) {
       res.status(500).json({ message: "Send failed" });
     }
   }
 );
 
-/* ================= ADMIN - GET ALL TICKETS ================= */
-router.get("/admin/all", verifyToken, async (req, res) => {
+/* ================= EDIT MESSAGE ================= */
+router.put("/:ticketId/message/:messageId", verifyToken, async (req, res) => {
   try {
-    const tickets = await SupportTicket.find()
-      .populate("user", "name email")
-      .sort({ updatedAt: -1 });
-
-    res.json(tickets);
-  } catch (err) {
-    res.status(500).json({ message: "Failed to fetch tickets" });
-  }
-});
-
-/* ================= ADMIN - REPLY (FIXED IMAGE SUPPORT) ================= */
-router.post("/admin/:ticketId/reply", verifyToken, async (req, res) => {
-  try {
-    const { message, image } = req.body;
-
     const ticket = await SupportTicket.findById(req.params.ticketId);
+    if (!ticket) return res.status(404).json({ message: "Not found" });
 
-    if (!ticket) {
-      return res.status(404).json({ message: "Ticket not found" });
-    }
+    const msg = ticket.messages.id(req.params.messageId);
+    if (!msg) return res.status(404).json({ message: "Message not found" });
 
-    const adminMsg = {
-      sender: "admin",
-      message: message || "",
-      image: image || null,   // ✅ FIXED
-      createdAt: new Date(),
-    };
-
-    ticket.messages.push(adminMsg);
-    ticket.updatedAt = new Date();
+    msg.message = req.body.message;
+    msg.editedAt = new Date();
 
     await ticket.save();
 
-    res.json(adminMsg);
+    res.json(msg);
   } catch (err) {
-    res.status(500).json({ message: "Reply failed" });
+    res.status(500).json({ message: "Edit failed" });
+  }
+});
+
+/* ================= DELETE MESSAGE (SOFT) ================= */
+router.delete("/:ticketId/message/:messageId", verifyToken, async (req, res) => {
+  try {
+    const ticket = await SupportTicket.findById(req.params.ticketId);
+    if (!ticket) return res.status(404).json({ message: "Not found" });
+
+    const msg = ticket.messages.id(req.params.messageId);
+    if (!msg) return res.status(404).json({ message: "Message not found" });
+
+    msg.isDeleted = true;
+    msg.message = "This message was deleted";
+    msg.image = null;
+
+    await ticket.save();
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: "Delete failed" });
   }
 });
 
