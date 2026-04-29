@@ -127,7 +127,7 @@ app.use("/api/notifications", notificationsRoutes);
 
 
 
-app.use("/api", swapRoutes);
+app.use("/api/swap", swapRoutes);
 
 
 
