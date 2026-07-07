@@ -10,7 +10,7 @@ mongoose.connect(process.env.COIN_MONGO_URL)
   .catch(err => console.error("MongoDB connection error:", err));
 
 async function createAdmin() {
-  const email = "admin@gmail.com"; // keep same admin email
+  const email = "tubeestifanos@gmail.com"; // keep same admin email
   const password = "admin123";     // new password you want to reset
 
   const hash = await bcrypt.hash(password, 10);
