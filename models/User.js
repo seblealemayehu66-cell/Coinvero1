@@ -54,6 +54,8 @@ const userSchema = new mongoose.Schema({
   referredBy: { type: String, default: null }, // store the referrer code
   referrals: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // users this person referred
   rewards: [{ type: Date, reward: Number }],
+     resetPasswordToken: String,
+  resetPasswordExpires: Date,
 }); { timestamps: true };
 
 export default mongoose.model("User", userSchema);
