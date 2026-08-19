@@ -46,6 +46,9 @@ router.post("/", authMiddleware, async (req, res) => {
       case 120:
         percentage = 20;
         break;
+         case 180:
+        percentage = 22;
+        break;
       case 300:
         percentage = 25;
         break;
