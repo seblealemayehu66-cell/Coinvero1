@@ -9,6 +9,7 @@ import Notification from "../models/Notification.js";
 import getNextUid from "../middleware/getNextUid.js";
 import auth from "../middleware/auth.js";
 import crypto from "crypto"; // for referral code generation
+import nodemailer from "nodemailer";
 
 const router = express.Router();
 
