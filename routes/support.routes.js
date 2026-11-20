@@ -133,5 +133,4 @@ router.post("/admin/:ticketId/reply", verifyToken, async (req, res) => {
    ✏️ EDIT MESSAGE (USER + ADMIN)
    ========================================================= */
 
-});
 export default router;
