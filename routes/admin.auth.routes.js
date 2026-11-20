@@ -5,6 +5,12 @@ import bcrypt from "bcryptjs";
 import Admin from "../models/Admin.js";
 
 const router = express.Router();
+router.get("/session", adminAuth, (req, res) => {
+  return res.status(200).json({
+    valid: true,
+    message: "Admin session is active"
+  });
+});
 
 // ===== Admin Login =====
 router.post("/login", async (req, res) => {
